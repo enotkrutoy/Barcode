@@ -48,6 +48,15 @@ const parseAAMVARaw = (raw: string): Record<string, string> => {
 
   lines.forEach(line => {
     line = line.trim();
+    
+    // Fix: The first line of a subfile block typically contains the Subfile Type (e.g. "DL")
+    // concatenated immediately with the first Element ID (e.g. "DDA").
+    // Example: "DLDDAF" -> We need to strip "DL" to get "DDAF".
+    // We check for common subfile types: DL (Driver License), ID (ID Card), EN (Enhanced).
+    if (/^(DL|ID|EN)[A-Z]{3}/.test(line)) {
+      line = line.substring(2);
+    }
+
     if (line.length < 4) return;
 
     // AAMVA Elements are 3 uppercase letters followed by data
