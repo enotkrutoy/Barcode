@@ -50,8 +50,13 @@ export const generateAAMVAString = (data: DLFormData): string => {
   sub += `DAY${data.DAY}\n`; // Eye Color
   sub += `DAZ${data.DAZ}\n`; // Hair Color
   
-  // Height formatting (ensure " in" or " cm" is present or strictly digits based on Jur logic, defaulting to append ' in')
-  const heightVal = data.DAU.endsWith(' in') || data.DAU.endsWith(' cm') ? data.DAU : `${data.DAU} in`;
+  // Height formatting logic
+  // AAMVA requires units. If not present, we assume inches based on standard US inputs.
+  let heightVal = data.DAU;
+  if (!heightVal.endsWith(' in') && !heightVal.endsWith(' cm')) {
+      // If it looks like inches (e.g. 070), append " in"
+      heightVal = `${heightVal} in`;
+  }
   sub += `DAU${heightVal}\n`; 
   
   sub += `DAW${data.DAW}\n`; // Weight
@@ -67,7 +72,6 @@ export const generateAAMVAString = (data: DLFormData): string => {
   // but logically belongs to the segment structure.
   
   // 2. Header Calculation
-  // Standard AAMVA Header size with 1 subfile designator is typically 31 bytes if offsets are standard strings.
   // Header Breakdown:
   // @(1) + LF(1) + RS(1) + CR(1) + "ANSI "(5) + IIN(6) + Ver(2) + JurVer(2) + Entries(2) = 21 bytes
   // Subfile Designator: Type(2) + Offset(4) + Length(4) = 10 bytes
