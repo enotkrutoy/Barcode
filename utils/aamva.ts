@@ -30,11 +30,11 @@ export const generateAAMVAString = (data: DLFormData): string => {
   // Personal Data
   sub += `DAQ${data.DAQ}\n`; // License Num
   sub += `DCS${data.DCS}\n`; // Last Name
-  sub += `DDE\n`;            // Truncation indicator (optional)
+  sub += `DDE${data.DDE || 'N'}\n`; // Truncation indicator (Default N)
   sub += `DAC${data.DAC}\n`; // First Name
-  sub += `DDF\n`;            // Truncation
+  sub += `DDF${data.DDF || 'N'}\n`; // Truncation (Default N)
   sub += `DAD${data.DAD}\n`; // Middle Name
-  sub += `DDG\n`;            // Truncation
+  sub += `DDG${data.DDG || 'N'}\n`; // Truncation (Default N)
   sub += `DCA${data.DCA}\n`; // Class
   
   // Restrictions & Endorsements are mandatory fields. If empty, use "NONE"

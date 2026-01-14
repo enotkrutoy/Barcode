@@ -26,13 +26,16 @@ export const preprocessImage = (file: File): Promise<string> => {
         const data = imageData.data;
 
         // Binarization logic (Grayscale + Threshold)
+        // Adjusted threshold for better handling of security backgrounds
         for (let i = 0; i < data.length; i += 4) {
           const r = data[i];
           const g = data[i + 1];
           const b = data[i + 2];
           
+          // Luma formula
           const gray = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-          const val = gray > 140 ? 255 : 0;
+          // Threshold 128 is safer for general text on IDs
+          const val = gray > 128 ? 255 : 0;
 
           data[i] = val;     // R
           data[i + 1] = val; // G
@@ -55,14 +58,11 @@ export const preprocessImage = (file: File): Promise<string> => {
 export const detectJurisdiction = (text: string): Jurisdiction | null => {
     const upperText = text.toUpperCase();
     
-    // Sort jurisdictions by name length desc to match "New York" before "New" (if that existed)
-    // CRITICAL FIX: We must sort by length descending. Otherwise "West Virginia" might match "Virginia" first.
     const candidates = JURISDICTIONS
         .filter(j => !j.name.includes("Old"))
         .sort((a, b) => b.name.length - a.name.length);
 
     for (const jur of candidates) {
-        // Check for full State Name (e.g. "CALIFORNIA")
         if (upperText.includes(jur.name.toUpperCase())) {
             return jur;
         }
@@ -83,18 +83,21 @@ export const parseOCRData = (text: string): Partial<DLFormData> => {
       const clean = dateStr.replace(/[^0-9]/g, '');
       if (clean.length === 8) {
         const yearPrefix = parseInt(clean.substring(0, 4));
-        // Simple heuristic: year should be reasonable
+        const yearSuffix = parseInt(clean.substring(4, 8));
+        
+        // Handle YYYYMMDD
         if (yearPrefix > 1900 && yearPrefix < 2100) {
-             // YYYYMMDD -> MMDDYYYY (AAMVA format is typically MMDDYYYY for DBA/DBB)
              return clean.substring(4, 6) + clean.substring(6, 8) + clean.substring(0, 4);
         }
-        return clean; 
+        // Handle MMDDYYYY (Standard US)
+        if (yearSuffix > 1900 && yearSuffix < 2100) {
+            return clean;
+        }
       }
       return '';
     };
 
     // 1. Dates
-    // Regex allows MM-DD-YYYY or YYYY-MM-DD, separators can be -, /, ., or space
     const datePattern = /(\d{2}[-/. ]\d{2}[-/. ]\d{4}|\d{4}[-/. ]\d{2}[-/. ]\d{2})/g;
 
     lines.forEach(line => {
@@ -103,47 +106,53 @@ export const parseOCRData = (text: string): Partial<DLFormData> => {
 
         if (datesInLine) {
             const dateVal = toAAMVADate(datesInLine[0]);
-            if (upper.includes("DOB") || upper.includes("BIRTH")) {
+            if (!dateVal) return;
+
+            if (upper.includes("DOB") || upper.includes("BIRTH") || upper.includes("3.")) {
                 updates.DBB = dateVal;
-            } else if (upper.includes("EXP") || upper.includes("EXPIRES")) {
+            } else if (upper.includes("EXP") || upper.includes("EXPIRES") || upper.includes("4B.")) {
                 updates.DBA = dateVal;
-            } else if (upper.includes("ISS") || upper.includes("ISSUED")) {
+            } else if (upper.includes("ISS") || upper.includes("ISSUED") || upper.includes("4A.")) {
                 updates.DBD = dateVal;
             }
         }
     });
 
+    // Fallback date logic
     if (!updates.DBB || !updates.DBA) {
         const allDates = fullText.match(datePattern);
         if (allDates) {
              const sorted = allDates.map(d => toAAMVADate(d)).filter(d => d.length === 8).sort((a, b) => {
-                 // Sort by year extracted from MMDDYYYY (last 4 digits)
                  const ya = parseInt(a.slice(4));
                  const yb = parseInt(b.slice(4));
                  return ya - yb;
              });
              
              if (sorted.length > 0) {
-                 if (!updates.DBB) updates.DBB = sorted[0]; // Earliest date usually DOB
-                 if (!updates.DBA) updates.DBA = sorted[sorted.length - 1]; // Latest date usually Exp
+                 if (!updates.DBB) updates.DBB = sorted[0]; 
+                 if (!updates.DBA) updates.DBA = sorted[sorted.length - 1]; 
              }
         }
     }
 
     // 2. Sex
-    if (/\b(SEX|S)\s*[:.]?\s*F\b/.test(fullText)) updates.DBC = '2';
-    else if (/\b(SEX|S)\s*[:.]?\s*M\b/.test(fullText)) updates.DBC = '1';
+    if (/\b(SEX|S)\s*[:.]?\s*F\b/.test(fullText) || /\b15\.?\s*F\b/.test(fullText)) updates.DBC = '2';
+    else if (/\b(SEX|S)\s*[:.]?\s*M\b/.test(fullText) || /\b15\.?\s*M\b/.test(fullText)) updates.DBC = '1';
 
-    // 3. Height
-    const hgtMatch = fullText.match(/(?:HGT|HEIGHT)[\s:.]*(\d)[' -]?(\d{2})/);
-    if (hgtMatch) {
-        const ft = parseInt(hgtMatch[1]);
-        const inch = parseInt(hgtMatch[2]);
+    // 3. Height (Supports 5'-02" format often seen on Texas/California IDs)
+    const hgtMatch = fullText.match(/(?:HGT|HEIGHT|16\.?)\s*[:.]?\s*(\d)[' -]?(\d{2})"/);
+    const hgtMatchSimple = fullText.match(/(?:HGT|HEIGHT|16\.?)\s*[:.]?\s*(\d)[' -]?(\d{2})/);
+    
+    const validHgt = hgtMatch || hgtMatchSimple;
+    
+    if (validHgt) {
+        const ft = parseInt(validHgt[1]);
+        const inch = parseInt(validHgt[2]);
         updates.DAU = ((ft * 12) + inch).toString().padStart(3, '0');
     }
 
     // 4. Weight
-    const wgtMatch = fullText.match(/(?:WGT|WEIGHT)[\s:.]*(\d{2,3})/);
+    const wgtMatch = fullText.match(/(?:WGT|WEIGHT)\s*[:.]?\s*(\d{2,3})/);
     if (wgtMatch) {
         updates.DAW = wgtMatch[1];
     }
@@ -151,9 +160,14 @@ export const parseOCRData = (text: string): Partial<DLFormData> => {
     // 5. Eyes
     const eyeCodes = ["BRO", "BLU", "GRN", "HAZ", "BLK", "GRY", "MAR", "PNK", "DIC"];
     for (const code of eyeCodes) {
-        if (fullText.includes(`EYES ${code}`) || fullText.includes(`EYE ${code}`) || lines.some(l => l === code)) {
-            updates.DAY = code;
-            break;
+        if (fullText.includes(code)) {
+            // Check context to avoid false positives in addresses
+            const idx = fullText.indexOf(code);
+            const context = fullText.substring(Math.max(0, idx - 10), idx + 3);
+            if (context.includes("EYE") || context.includes("18")) {
+                updates.DAY = code;
+                break;
+            }
         }
     }
 
@@ -166,12 +180,29 @@ export const parseOCRData = (text: string): Partial<DLFormData> => {
         }
     }
     
-    // 7. Names
-    const lnMatch = fullText.match(/(?:LN|LAST|SURNAME)\s*[:.]?\s*([A-Z]+)/);
-    if (lnMatch) updates.DCS = lnMatch[1];
+    // 7. Names - Enhanced for Texas Style (1. Last, 2. First Middle)
+    // Texas: 1. POITIER
+    //        2. KATRINA TENNILLE
     
-    const fnMatch = fullText.match(/(?:FN|FIRST|GIVEN)\s*[:.]?\s*([A-Z]+)/);
-    if (fnMatch) updates.DAC = fnMatch[1];
+    const texasLn = fullText.match(/1\.\s*([A-Z]+)/);
+    const texasFn = fullText.match(/2\.\s*([A-Z]+)(?:\s+([A-Z]+))?/);
+
+    if (texasLn) {
+        updates.DCS = texasLn[1];
+    } else {
+        // Standard Labels
+        const lnMatch = fullText.match(/(?:LN|LAST|SURNAME)\s*[:.]?\s*([A-Z]+)/);
+        if (lnMatch) updates.DCS = lnMatch[1];
+    }
+
+    if (texasFn) {
+        updates.DAC = texasFn[1];
+        if (texasFn[2]) updates.DAD = texasFn[2];
+    } else {
+        // Standard Labels
+        const fnMatch = fullText.match(/(?:FN|FIRST|GIVEN)\s*[:.]?\s*([A-Z]+)/);
+        if (fnMatch) updates.DAC = fnMatch[1];
+    }
 
     // 8. Zip
     const zipMatch = fullText.match(/\b(\d{5})[- ]?(\d{4})?\b/);
