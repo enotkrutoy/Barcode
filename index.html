@@ -3,33 +3,67 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#020617" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <title>AAMVA Barcode Pro</title>
-    <!-- Tailwind via CDN for simplicity. In a full prod setup, we might move to PostCSS, but CDN is fine for this demo. -->
+    <meta name="theme-color" content="#1a73e8" />
+    <title>DocuMind AI - Intelligent Document Analysis</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              google: {
+                blue: '#1a73e8',
+                blueHover: '#1557b0',
+                gray: '#f1f3f4',
+                text: '#202124',
+                border: '#dadce0',
+                green: '#188038',
+                red: '#d93025',
+                yellow: '#f4b400'
+              }
+            },
+            fontFamily: {
+              sans: ['Roboto', 'sans-serif'],
+            }
+          }
+        }
+      }
+    </script>
     <style>
       body {
         font-family: 'Roboto', sans-serif;
-        background-color: #020617; /* slate-950 */
-        color: #f8fafc; /* slate-50 */
-        -webkit-tap-highlight-color: transparent;
+        background-color: #f8f9fa;
+        color: #202124;
       }
-      /* Custom scrollbar for dark mode */
-      ::-webkit-scrollbar {
+      .custom-scrollbar::-webkit-scrollbar {
         width: 8px;
+        height: 8px;
       }
-      ::-webkit-scrollbar-track {
-        background: #0f172a; 
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: #f1f3f4;
       }
-      ::-webkit-scrollbar-thumb {
-        background: #334155; 
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #dadce0;
         border-radius: 4px;
       }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #475569; 
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: #bdc1c6;
+      }
+      .loader-shimmer {
+        background: #f6f7f8;
+        background-image: linear-gradient(to right, #f6f7f8 0%, #edeef1 20%, #f6f7f8 40%, #f6f7f8 100%);
+        background-repeat: no-repeat;
+        background-size: 800px 104px; 
+        animation-duration: 1s;
+        animation-fill-mode: forwards; 
+        animation-iteration-count: infinite;
+        animation-name: placeholderShimmer;
+        animation-timing-function: linear;
+      }
+      @keyframes placeholderShimmer {
+        0% { background-position: -468px 0; }
+        100% { background-position: 468px 0; } 
       }
     </style>
 <script type="importmap">
@@ -38,12 +72,12 @@
     "react": "https://esm.sh/react@^19.2.3",
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
     "react/": "https://esm.sh/react@^19.2.3/",
-    "bwip-js": "https://esm.sh/bwip-js@^4.8.0",
-    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
-    "tesseract.js": "https://esm.sh/tesseract.js@^7.0.0",
-    "@zxing/library": "https://esm.sh/@zxing/library@^0.21.3",
     "vite": "https://esm.sh/vite@^7.3.1",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
+    "@google/genai": "https://esm.sh/@google/genai@^1.35.0",
+    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
+    "clsx": "https://esm.sh/clsx@^2.1.1",
+    "pdfjs-dist": "https://esm.sh/pdfjs-dist@^5.4.530"
   }
 }
 </script>

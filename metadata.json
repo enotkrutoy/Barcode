@@ -1,5 +1,5 @@
 {
-  "name": "AAMVA Barcode Pro",
-  "description": "Professional US/Canada Driver's License PDF417 Barcode Generator compliant with AAMVA 2020 standards.",
+  "name": "DocuMind AI",
+  "description": "Intelligent Document Analysis powered by Google Gemini 2.5/3.0. Extract structured data from PDFs and Images.",
   "requestFramePermissions": []
 }
